@@ -1,0 +1,82 @@
+---
+// src/layouts/Layout.astro
+
+interface Props {
+	title: string;
+	description?: string;
+}
+
+const { title} = Astro.props;
+---
+
+<!doctype html>
+<html lang="fr" class="dark">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		
+		<link rel="preconnect" href="https://fonts.googleapis.com" />
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+		<title>{title}</title>
+	</head>
+	<body class="bg-gray-950 text-slate-100 min-h-screen flex flex-col">
+		
+		<div class="flex-grow">
+			<slot />
+		</div>
+
+		<footer class="p-4 text-center text-slate-500 text-sm mt-10">
+			Site développé par Florian Lefebvre
+		</footer>
+
+	</body>
+</html>
+
+<style is:global>
+	/* Styles globaux pour toute l'application */
+	
+	:root {
+		--accent: 59, 130, 246; /* Un bleu moderne (Tailwind's blue-500) */
+		--accent-light: 224, 204, 250;
+		--accent-dark: 49, 10, 101;
+	}
+
+	html {
+		font-family: 'Inter', system-ui, sans-serif;
+		background: #c5cbd8; /* Fallback couleur */
+		background-size: 224px;
+	}
+
+	/* Personnalisation de la Scrollbar (Chrome/Safari/Edge) */
+	::-webkit-scrollbar {
+		width: 10px;
+	}
+
+	::-webkit-scrollbar-track {
+		background: #1e293b; 
+	}
+
+	::-webkit-scrollbar-thumb {
+		background: #475569; 
+		border-radius: 5px;
+	}
+
+	::-webkit-scrollbar-thumb:hover {
+		background: #64748b; 
+	}
+
+	/* Pour Firefox */
+	* {
+		scrollbar-width: thin;
+		scrollbar-color: #475569 #1e293b;
+	}
+
+	/* Utilitaires pour le jeu */
+	.text-shadow {
+		text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+	}
+</style>
