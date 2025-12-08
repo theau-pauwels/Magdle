@@ -328,7 +328,7 @@
     "RelationFamille": "Trkl",
     "PcPref": ["Mag-1"],
     "régio": ["Centrale"],
-    "neuillitude": "8",
+    "neuillitude": "9",
     "RankLol": "joue pas", 
     "BoissonPref": "Redbull"
   },{
@@ -343,5 +343,17 @@
     "neuillitude": "3",
     "RankLol": "diamond", 
     "BoissonPref": "Bière"
+  },{
+    "id":"Raphbg",
+    "name": "Raphaël Delens",
+    "age": "25",
+    "cheveux": ["Chatain"],
+    "JeuPref": ["RPG"],
+    "RelationFamille": "Nulle",
+    "PcPref": ["Mag-4"],
+    "régio": ["Carolo"],
+    "neuillitude": "3",
+    "RankLol": "joue pas", 
+    "BoissonPref": "Café"
   }
 ]
