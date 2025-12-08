@@ -16,21 +16,26 @@ const STATUS_STYLES = {
   DEFAULT: 'bg-slate-800/80 border-slate-600',
 };
 
-// --- 1. SÉLECTION QUOTIDIENNE SYNCHRONISÉE (Europe/Paris) ---
+// --- FONCTION DE DATE ROBUSTE (Format AAAA-MM-JJ sur Paris) ---
+const getParisDateString = () => {
+  // 'fr-CA' force le format AAAA-MM-JJ qui est le plus stable pour les tris et comparaisons
+  return new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date());
+};
+
+// --- SÉLECTION QUOTIDIENNE STABLE ---
 const getDailyTarget = () => {
-  // On force la date sur le fuseau horaire de Paris/Bruxelles
-  // Cela assure que tout le monde a la même date de référence
-  const today = new Date().toLocaleDateString('fr-FR', {
-    timeZone: 'Europe/Paris'
-  });
+  const dateStr = getParisDateString(); // ex: "2025-12-08"
   
-  // Hachage simple de la chaîne de date (ex: "08/12/2025")
   let hash = 0;
-  for (let i = 0; i < today.length; i++) {
-    hash = today.charCodeAt(i) + ((hash << 5) - hash);
+  for (let i = 0; i < dateStr.length; i++) {
+    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // Choix de l'index basé sur ce hash
   const index = Math.abs(hash) % championsData.length;
   return championsData[index];
 };
@@ -131,7 +136,7 @@ const Cell = ({ children, status, delay = 0 }) => {
   );
 };
 
-// --- COMPTE A REBOURS SYNCHRONISÉ (Paris) ---
+// --- COMPTE A REBOURS SYNCHRONISÉ ---
 const CountdownToMidnight = () => {
   const [timeLeft, setTimeLeft] = useState('');
 
@@ -139,11 +144,11 @@ const CountdownToMidnight = () => {
     const updateTimer = () => {
       const now = new Date();
       
-      // Créer une date correspondant à l'heure actuelle à Paris
+      // On récupère l'heure actuelle à Paris
       const parisTimeStr = now.toLocaleString("en-US", {timeZone: "Europe/Paris"});
       const parisDate = new Date(parisTimeStr);
       
-      // Calculer le prochain minuit à Paris
+      // On calcule le prochain minuit
       const tomorrow = new Date(parisDate);
       tomorrow.setHours(24, 0, 0, 0);
       
@@ -176,33 +181,34 @@ export default function Game() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Chargement LocalStorage (Vérification de la date de Paris)
+  // Chargement et Vérification avec la date stable
   useEffect(() => {
-    // IMPORTANT : On vérifie la date de Paris, pas la date locale du PC
-    const todayParis = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
+    const todayISO = getParisDateString(); // ex: "2025-12-08"
     const storedData = localStorage.getItem('magde-daily-state');
 
     if (storedData) {
       const parsedData = JSON.parse(storedData);
       
-      if (parsedData.date === todayParis) {
+      // Si la date stockée correspond à la date ISO d'aujourd'hui
+      if (parsedData.date === todayISO) {
         setGuesses(parsedData.guesses);
         setIsGameOver(parsedData.isGameOver);
         if (parsedData.isGameOver) {
             setShowSuccessModal(true); 
         }
       } else {
+        // C'est un nouveau jour (ou une mise à jour du format de date), on reset
         localStorage.removeItem('magde-daily-state');
       }
     }
   }, []);
 
-  // Sauvegarde LocalStorage
+  // Sauvegarde
   useEffect(() => {
     if (guesses.length > 0 || isGameOver) {
-      const todayParis = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
+      const todayISO = getParisDateString();
       const stateToSave = {
-        date: todayParis,
+        date: todayISO,
         guesses,
         isGameOver
       };
@@ -253,7 +259,7 @@ export default function Game() {
     }
   };
 
-  if (!target) return <div className="text-white text-center mt-10">Chargement de la mission du jour...</div>;
+  if (!target) return <div className="text-white text-center mt-10">Chargement...</div>;
 
   const gridColsClass = "grid grid-cols-11 gap-1 md:gap-2 w-full";
 
