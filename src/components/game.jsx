@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import championsData from '../data/champions.json';
 
 // --- CONFIGURATION & UTILITAIRES ---
@@ -16,20 +16,21 @@ const STATUS_STYLES = {
   DEFAULT: 'bg-slate-800/80 border-slate-600',
 };
 
-// --- LOGIQUE SÉLECTION QUOTIDIENNE ---
-// Cette fonction génère un index "aléatoire" mais fixe pour une date donnée
+// --- 1. SÉLECTION QUOTIDIENNE SYNCHRONISÉE (Europe/Paris) ---
 const getDailyTarget = () => {
-  // On récupère la date locale sous format "JJ/MM/AAAA"
-  const today = new Date().toLocaleDateString('fr-FR');
+  // On force la date sur le fuseau horaire de Paris/Bruxelles
+  // Cela assure que tout le monde a la même date de référence
+  const today = new Date().toLocaleDateString('fr-FR', {
+    timeZone: 'Europe/Paris'
+  });
   
-  // On transforme la date en un nombre (hash simple)
+  // Hachage simple de la chaîne de date (ex: "08/12/2025")
   let hash = 0;
   for (let i = 0; i < today.length; i++) {
     hash = today.charCodeAt(i) + ((hash << 5) - hash);
   }
   
-  // On utilise ce hash pour choisir un index dans la liste
-  // Math.abs pour éviter les négatifs
+  // Choix de l'index basé sur ce hash
   const index = Math.abs(hash) % championsData.length;
   return championsData[index];
 };
@@ -130,47 +131,78 @@ const Cell = ({ children, status, delay = 0 }) => {
   );
 };
 
+// --- COMPTE A REBOURS SYNCHRONISÉ (Paris) ---
+const CountdownToMidnight = () => {
+  const [timeLeft, setTimeLeft] = useState('');
+
+  useEffect(() => {
+    const updateTimer = () => {
+      const now = new Date();
+      
+      // Créer une date correspondant à l'heure actuelle à Paris
+      const parisTimeStr = now.toLocaleString("en-US", {timeZone: "Europe/Paris"});
+      const parisDate = new Date(parisTimeStr);
+      
+      // Calculer le prochain minuit à Paris
+      const tomorrow = new Date(parisDate);
+      tomorrow.setHours(24, 0, 0, 0);
+      
+      const diff = tomorrow - parisDate;
+
+      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const m = Math.floor((diff / (1000 * 60)) % 60);
+      const s = Math.floor((diff / 1000) % 60);
+      
+      setTimeLeft(`${h}h ${m}m ${s}s`);
+    };
+
+    updateTimer();
+    const timer = setInterval(updateTimer, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return <span className="font-mono text-amber-500 font-bold text-lg">{timeLeft}</span>;
+};
+
+
 // --- MAIN COMPONENT ---
 
 export default function Game() {
-  // 1. La cible est calculée une fois pour toutes (pas de useState pour target car fixe par jour)
   const target = useMemo(() => getDailyTarget(), []);
   
   const [guesses, setGuesses] = useState([]);
   const [input, setInput] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false); // Pour gérer la croix
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // 2. Chargement du LocalStorage au démarrage
+  // Chargement LocalStorage (Vérification de la date de Paris)
   useEffect(() => {
-    const today = new Date().toLocaleDateString('fr-FR');
+    // IMPORTANT : On vérifie la date de Paris, pas la date locale du PC
+    const todayParis = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
     const storedData = localStorage.getItem('magde-daily-state');
 
     if (storedData) {
       const parsedData = JSON.parse(storedData);
       
-      // Si c'est la même date, on restaure la partie
-      if (parsedData.date === today) {
+      if (parsedData.date === todayParis) {
         setGuesses(parsedData.guesses);
         setIsGameOver(parsedData.isGameOver);
-        // On n'affiche la modale au chargement que si le jeu est fini
         if (parsedData.isGameOver) {
             setShowSuccessModal(true); 
         }
       } else {
-        // Nouvelle journée : on nettoie
         localStorage.removeItem('magde-daily-state');
       }
     }
   }, []);
 
-  // 3. Sauvegarde dans le LocalStorage à chaque changement d'état important
+  // Sauvegarde LocalStorage
   useEffect(() => {
     if (guesses.length > 0 || isGameOver) {
-      const today = new Date().toLocaleDateString('fr-FR');
+      const todayParis = new Date().toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris' });
       const stateToSave = {
-        date: today,
+        date: todayParis,
         guesses,
         isGameOver
       };
@@ -202,7 +234,7 @@ export default function Game() {
       
       if (champion.name === target.name) {
         setIsGameOver(true);
-        setTimeout(() => setShowSuccessModal(true), 1500); // Petit délai pour le suspense
+        setTimeout(() => setShowSuccessModal(true), 1500);
       }
     }
   };
@@ -309,16 +341,15 @@ export default function Game() {
         ))}
       </div>
 
-      {/* MODALE VICTOIRE (AVEC CROIX) */}
+      {/* MODALE VICTOIRE */}
       {showSuccessModal && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-fade-in p-4">
             <div className="relative bg-slate-900 border-2 border-amber-500 p-8 rounded-xl text-center shadow-[0_0_50px_rgba(245,158,11,0.5)] max-w-sm w-full mx-auto">
               
-              {/* Bouton Fermer (Croix) */}
               <button 
                 onClick={() => setShowSuccessModal(false)}
                 className="absolute top-2 right-2 text-slate-400 hover:text-white transition-colors p-2"
-                title="Fermer et voir les résultats"
+                title="Fermer"
               >
                 <CloseIcon />
               </button>
@@ -341,7 +372,6 @@ export default function Game() {
          </div>
       )}
 
-      {/* Styles */}
       <style>{`
         @keyframes flip-in {
           0% { transform: rotateX(-90deg); opacity: 0; }
@@ -354,29 +384,3 @@ export default function Game() {
     </div>
   );
 }
-
-// Petit composant pour le compte à rebours
-const CountdownToMidnight = () => {
-  const [timeLeft, setTimeLeft] = useState('');
-
-  useEffect(() => {
-    const updateTimer = () => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setHours(24, 0, 0, 0); // Minuit prochaine
-      const diff = tomorrow - now;
-
-      const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
-      const m = Math.floor((diff / (1000 * 60)) % 60);
-      const s = Math.floor((diff / 1000) % 60);
-      
-      setTimeLeft(`${h}h ${m}m ${s}s`);
-    };
-
-    updateTimer();
-    const timer = setInterval(updateTimer, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  return <span className="font-mono text-amber-500 font-bold text-lg">{timeLeft}</span>;
-};
