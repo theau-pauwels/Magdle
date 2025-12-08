@@ -16,9 +16,8 @@ const STATUS_STYLES = {
   DEFAULT: 'bg-slate-800/80 border-slate-600',
 };
 
-// --- FONCTION DE DATE ROBUSTE (Format AAAA-MM-JJ sur Paris) ---
+// --- FONCTION DE DATE ROBUSTE ---
 const getParisDateString = () => {
-  // 'fr-CA' force le format AAAA-MM-JJ qui est le plus stable pour les tris et comparaisons
   return new Intl.DateTimeFormat('fr-CA', {
     timeZone: 'Europe/Paris',
     year: 'numeric',
@@ -27,62 +26,76 @@ const getParisDateString = () => {
   }).format(new Date());
 };
 
-// --- SÉLECTION QUOTIDIENNE STABLE ---
+// --- SÉLECTION QUOTIDIENNE ---
 const getDailyTarget = () => {
-  const dateStr = getParisDateString(); // ex: "2025-12-08"
-  
+  const dateStr = getParisDateString();
   let hash = 0;
   for (let i = 0; i < dateStr.length; i++) {
     hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
   }
-  
   const index = Math.abs(hash) % championsData.length;
   return championsData[index];
 };
 
-// --- LOGIQUE DES RANGS LOL ---
+// --- LOGIQUE DES VALEURS (POUR LES FLÈCHES) ---
+
+// 1. RANG LOL
 const getRankValue = (rankStr) => {
   if (!rankStr) return 0;
   const rank = rankStr.toLowerCase();
-
   if (rank.includes('joue pas') || rank.includes('unrank')) return 0;
 
-  const tiers = [
-    'iron', 'bronze', 'silver', 'gold', 'plat', 'emerald', 'diamond', 
-    'master', 'grandmaster', 'challenger'
-  ];
-
+  const tiers = ['iron', 'bronze', 'silver', 'gold', 'plat', 'emerald', 'diamond', 'master', 'grandmaster', 'challenger'];
   let score = 0;
   const tierIndex = tiers.findIndex(t => rank.includes(t));
-  if (tierIndex !== -1) {
-    score = (tierIndex + 1) * 100;
-  }
+  if (tierIndex !== -1) score = (tierIndex + 1) * 100;
 
   const divisionMatch = rank.match(/(\d)/);
-  if (divisionMatch) {
-    const division = parseInt(divisionMatch[0], 10);
-    score += (5 - division) * 10; 
-  }
+  if (divisionMatch) score += (5 - parseInt(divisionMatch[0], 10)) * 10;
 
   return score;
 };
 
+// 2. PC PRÉFÉRÉ (Extrait le numéro "Mag-5" -> 5)
+const getPcValue = (pcInput) => {
+  // Gère si c'est un tableau ou une string
+  const str = Array.isArray(pcInput) ? pcInput[0] : pcInput;
+  if (!str) return 0;
+  
+  // Trouve le premier nombre dans la chaîne (Mag-5 -> 5)
+  const match = String(str).match(/(\d+)/);
+  return match ? parseInt(match[0], 10) : 0;
+};
+
+// 3. NEUILLITUDE (Échelle 1 à 9)
+const getNeuillitudeValue = (val) => {
+  const v = String(val).toLowerCase().trim();
+  
+  // Si c'est un nombre direct (ex: "5")
+  const num = parseInt(v);
+  if (!isNaN(num)) return num;
+
+  // Mapping des textes vers l'échelle 1-9
+  if (v.includes('pas') || v === '0') return 1;
+  if (v.includes('semi')) return 4;
+  if (v === 'neuille') return 7;
+  if (v.includes('elev') || v.includes('élev')) return 9;
+  
+  return 1; // Valeur par défaut
+};
+
+// Fonction de comparaison générique
 const getComparisonStatus = (guessVal, targetVal) => {
   if (!Array.isArray(targetVal)) {
     const cleanGuess = String(guessVal).trim().toLowerCase();
     const cleanTarget = String(targetVal).trim().toLowerCase();
     return cleanGuess === cleanTarget ? STATUS.CORRECT : STATUS.INCORRECT;
   }
-
   const guessArr = Array.isArray(guessVal) ? guessVal : [guessVal];
-  const isExactMatch = guessArr.length === targetVal.length && 
-                       guessArr.every(v => targetVal.includes(v));
-  
+  const isExactMatch = guessArr.length === targetVal.length && guessArr.every(v => targetVal.includes(v));
   if (isExactMatch) return STATUS.CORRECT;
-
   const isPartialMatch = guessArr.some(v => targetVal.includes(v));
   if (isPartialMatch) return STATUS.PARTIAL;
-
   return STATUS.INCORRECT;
 };
 
@@ -105,15 +118,10 @@ const CloseIcon = () => (
 
 const AdminImage = ({ id, name, className }) => {
   const [imgSrc, setImgSrc] = useState(`/images/${id}.png`);
-  
   const handleError = () => {
-    if (imgSrc.endsWith('.png')) {
-      setImgSrc(`/images/${id}.jpg`);
-    } else {
-      setImgSrc('https://placehold.co/100x100?text=?');
-    }
+    if (imgSrc.endsWith('.png')) setImgSrc(`/images/${id}.jpg`);
+    else setImgSrc('https://placehold.co/100x100?text=?');
   };
-
   return <img src={imgSrc} alt={name} className={className} onError={handleError} />;
 };
 
@@ -136,108 +144,76 @@ const Cell = ({ children, status, delay = 0 }) => {
   );
 };
 
-// --- COMPTE A REBOURS SYNCHRONISÉ ---
 const CountdownToMidnight = () => {
   const [timeLeft, setTimeLeft] = useState('');
-
   useEffect(() => {
     const updateTimer = () => {
       const now = new Date();
-      
-      // On récupère l'heure actuelle à Paris
       const parisTimeStr = now.toLocaleString("en-US", {timeZone: "Europe/Paris"});
       const parisDate = new Date(parisTimeStr);
-      
-      // On calcule le prochain minuit
       const tomorrow = new Date(parisDate);
       tomorrow.setHours(24, 0, 0, 0);
-      
       const diff = tomorrow - parisDate;
-
       const h = Math.floor((diff / (1000 * 60 * 60)) % 24);
       const m = Math.floor((diff / (1000 * 60)) % 60);
       const s = Math.floor((diff / 1000) % 60);
-      
       setTimeLeft(`${h}h ${m}m ${s}s`);
     };
-
     updateTimer();
     const timer = setInterval(updateTimer, 1000);
     return () => clearInterval(timer);
   }, []);
-
   return <span className="font-mono text-amber-500 font-bold text-lg">{timeLeft}</span>;
 };
-
 
 // --- MAIN COMPONENT ---
 
 export default function Game() {
   const target = useMemo(() => getDailyTarget(), []);
-  
   const [guesses, setGuesses] = useState([]);
   const [input, setInput] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
-  // Chargement et Vérification avec la date stable
   useEffect(() => {
-    const todayISO = getParisDateString(); // ex: "2025-12-08"
+    const todayISO = getParisDateString();
     const storedData = localStorage.getItem('magde-daily-state');
-
     if (storedData) {
       const parsedData = JSON.parse(storedData);
-      
-      // Si la date stockée correspond à la date ISO d'aujourd'hui
       if (parsedData.date === todayISO) {
         setGuesses(parsedData.guesses);
         setIsGameOver(parsedData.isGameOver);
-        if (parsedData.isGameOver) {
-            setShowSuccessModal(true); 
-        }
+        if (parsedData.isGameOver) setShowSuccessModal(true); 
       } else {
-        // C'est un nouveau jour (ou une mise à jour du format de date), on reset
         localStorage.removeItem('magde-daily-state');
       }
     }
   }, []);
 
-  // Sauvegarde
   useEffect(() => {
     if (guesses.length > 0 || isGameOver) {
       const todayISO = getParisDateString();
-      const stateToSave = {
-        date: todayISO,
-        guesses,
-        isGameOver
-      };
-      localStorage.setItem('magde-daily-state', JSON.stringify(stateToSave));
+      localStorage.setItem('magde-daily-state', JSON.stringify({ date: todayISO, guesses, isGameOver }));
     }
   }, [guesses, isGameOver]);
 
   const filteredChampions = useMemo(() => {
     if (input.length < 1) return [];
-    return championsData
-      .filter(c => 
-        c.name.toLowerCase().includes(input.toLowerCase()) && 
-        !guesses.some(g => g.name === c.name)
-      )
-      .slice(0, 5);
+    return championsData.filter(c => 
+      c.name.toLowerCase().includes(input.toLowerCase()) && !guesses.some(g => g.name === c.name)
+    ).slice(0, 5);
   }, [input, guesses]);
 
   useEffect(() => setSelectedIndex(0), [filteredChampions]);
 
   const handleGuess = (championName) => {
     if (isGameOver || !target) return;
-
     const champion = championsData.find(c => c.name.toLowerCase() === championName.toLowerCase());
-    
     if (champion && !guesses.some(g => g.name === champion.name)) {
       const newGuesses = [champion, ...guesses];
       setGuesses(newGuesses);
       setInput('');
-      
       if (champion.name === target.name) {
         setIsGameOver(true);
         setTimeout(() => setShowSuccessModal(true), 1500);
@@ -265,7 +241,6 @@ export default function Game() {
 
   return (
     <div className="w-full max-w-[1600px] mx-auto p-2 md:p-4 flex flex-col items-center">
-      
       {/* BARRE DE RECHERCHE */}
       <div className="relative w-full max-w-md mb-6 md:mb-10 z-50">
         <div className={`relative flex items-center bg-slate-800 border-2 ${isGameOver ? 'border-green-500 opacity-50' : 'border-amber-500'} rounded-lg shadow-[0_0_15px_rgba(245,158,11,0.3)] transition-all`}>
@@ -282,8 +257,6 @@ export default function Game() {
              disabled={isGameOver}
            />
         </div>
-
-        {/* Suggestions */}
         {filteredChampions.length > 0 && !isGameOver && (
           <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg shadow-xl overflow-hidden animate-fade-in">
             {filteredChampions.map((c, idx) => (
@@ -318,8 +291,9 @@ export default function Game() {
               <AdminImage id={guess.id} name={guess.name} className="w-full h-full object-cover" />
               {guess.name !== target.name && <div className="absolute inset-0 bg-red-500/20 backdrop-grayscale-[0.5]"></div>}
             </div>
-            {/* 2-11. Cellules Attributs */}
+            {/* 2. Nom */}
             <Cell status={getComparisonStatus(guess.name, target.name)} delay={50}>{guess.name}</Cell>
+            {/* 3. Âge */}
             <Cell status={guess.age === target.age ? STATUS.CORRECT : STATUS.INCORRECT} delay={100}>
                 <div className="flex items-center gap-1">
                 {guess.age}
@@ -327,12 +301,39 @@ export default function Game() {
                 {Number(guess.age) > Number(target.age) && <ArrowIcon direction="down" />}
                 </div>
             </Cell>
+            {/* 4. Cheveux */}
             <Cell status={getComparisonStatus(guess.cheveux, target.cheveux)} delay={200}>{Array.isArray(guess.cheveux) ? guess.cheveux.join(', ') : guess.cheveux}</Cell>
+            {/* 5. Jeu */}
             <Cell status={getComparisonStatus(guess.JeuPref, target.JeuPref)} delay={300}>{Array.isArray(guess.JeuPref) ? guess.JeuPref.join(', ') : guess.JeuPref}</Cell>
+            {/* 6. Famille */}
             <Cell status={getComparisonStatus(guess.RelationFamille, target.RelationFamille)} delay={400}>{guess.RelationFamille}</Cell>
-            <Cell status={getComparisonStatus(guess.PcPref, target.PcPref)} delay={500}>{Array.isArray(guess.PcPref) ? guess.PcPref.join(', ') : guess.PcPref}</Cell>
+            
+            {/* 7. PC Préféré (Avec Flèches) */}
+            <Cell status={getPcValue(guess.PcPref) === getPcValue(target.PcPref) ? STATUS.CORRECT : STATUS.INCORRECT} delay={500}>
+                <div className="flex flex-col items-center">
+                    <span>{Array.isArray(guess.PcPref) ? guess.PcPref.join(', ') : guess.PcPref}</span>
+                    <div className="flex items-center mt-1 h-3">
+                        {getPcValue(guess.PcPref) < getPcValue(target.PcPref) && <ArrowIcon direction="up" />}
+                        {getPcValue(guess.PcPref) > getPcValue(target.PcPref) && <ArrowIcon direction="down" />}
+                    </div>
+                </div>
+            </Cell>
+
+            {/* 8. Région */}
             <Cell status={getComparisonStatus(guess.régio, target.régio)} delay={600}>{Array.isArray(guess.régio) ? guess.régio.join(',\n') : guess.régio}</Cell>
-            <Cell status={getComparisonStatus(guess.neuillitude, target.neuillitude)} delay={700}>{guess.neuillitude}</Cell>
+            
+            {/* 9. Neuillitude (Avec Flèches) */}
+            <Cell status={getNeuillitudeValue(guess.neuillitude) === getNeuillitudeValue(target.neuillitude) ? STATUS.CORRECT : STATUS.INCORRECT} delay={700}>
+                <div className="flex flex-col items-center">
+                    <span>{guess.neuillitude}</span>
+                    <div className="flex items-center mt-1 h-3">
+                        {getNeuillitudeValue(guess.neuillitude) < getNeuillitudeValue(target.neuillitude) && <ArrowIcon direction="up" />}
+                        {getNeuillitudeValue(guess.neuillitude) > getNeuillitudeValue(target.neuillitude) && <ArrowIcon direction="down" />}
+                    </div>
+                </div>
+            </Cell>
+
+            {/* 10. Rank LOL */}
             <Cell status={getRankValue(guess.RankLol) === getRankValue(target.RankLol) ? STATUS.CORRECT : STATUS.INCORRECT} delay={800}>
                 <div className="flex flex-col items-center">
                 <span>{guess.RankLol}</span>
@@ -342,6 +343,8 @@ export default function Game() {
                 </div>
                 </div>
             </Cell>
+
+            {/* 11. Boisson */}
             <Cell status={getComparisonStatus(guess.BoissonPref, target.BoissonPref)} delay={900}>{Array.isArray(guess.BoissonPref) ? guess.BoissonPref.join(', ') : guess.BoissonPref}</Cell>
           </div>
         ))}
