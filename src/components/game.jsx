@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import championsData from '../data/champions.json';
+import planningData from '../data/planning.json';
 
 // --- CONFIGURATION & UTILITAIRES ---
 
@@ -18,34 +19,41 @@ const STATUS_STYLES = {
 
 // --- FONCTION DE DATE ROBUSTE V2 (INCASSABLE) ---
 const getParisDateString = () => {
-  const options = { 
-    timeZone: 'Europe/Paris', 
-    year: 'numeric', 
-    month: '2-digit', 
-    day: '2-digit' 
-  };
-  
-  // On utilise 'en-US' car c'est le format le plus stable pour extraire les parts
+  const options = { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' };
   const formatter = new Intl.DateTimeFormat('en-US', options);
   const parts = formatter.formatToParts(new Date());
-
   const year = parts.find(p => p.type === 'year').value;
   const month = parts.find(p => p.type === 'month').value;
   const day = parts.find(p => p.type === 'day').value;
-
-  // On renvoie toujours YYYY-MM-DD manuellement
   return `${year}-${month}-${day}`;
 };
 
 // --- SÉLECTION QUOTIDIENNE ---
 const getDailyTarget = () => {
   const dateStr = getParisDateString();
-  let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+  
+  // 1. On récupère la chaîne cryptée (ex: "QWhyaQ==")
+  const encryptedName = planningData[dateStr];
+
+  if (!encryptedName) {
+    // Si on a dépassé les dates du planning, on prend un champion par défaut
+    // Ou alors tu relances ton script de génération l'année prochaine !
+    console.error("Date hors planning !");
+    return championsData[0];
   }
-  const index = Math.abs(hash) % championsData.length;
-  return championsData[index];
+
+  // 2. DÉCRYPTAGE (Base64 -> Texte)
+  // atob() est une fonction native du navigateur pour décoder le Base64
+  try {
+    const realName = atob(encryptedName);
+    
+    // 3. On trouve le champion correspondant au nom décrypté
+    // On utilise toLowerCase() pour être sûr d'éviter les soucis de majuscules
+    return championsData.find(c => c.name.toLowerCase() === realName.toLowerCase());
+  } catch (e) {
+    console.error("Erreur de décryptage", e);
+    return championsData[0];
+  }
 };
 
 // Fonction pour réduire la police si le texte est long
