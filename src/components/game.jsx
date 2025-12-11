@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import championsData from '../data/champions.json';
+import planningData from '../data/planning.json';
 
 // ... (GARDE TOUTE TA CONFIGURATION, STATUS, STATUS_STYLES, getParisDateString, ETC. ICI) ...
 // ... (GARDE TOUTES TES FONCTIONS UTILITAIRES ICI) ...
@@ -31,12 +32,29 @@ const getParisDateString = () => {
 
 const getDailyTarget = () => {
   const dateStr = getParisDateString();
-  let hash = 0;
-  for (let i = 0; i < dateStr.length; i++) {
-    hash = dateStr.charCodeAt(i) + ((hash << 5) - hash);
+  
+  // 1. On récupère la chaîne cryptée (ex: "QWhyaQ==")
+  const encryptedName = planningData[dateStr];
+
+  if (!encryptedName) {
+    // Si on a dépassé les dates du planning, on prend un champion par défaut
+    // Ou alors tu relances ton script de génération l'année prochaine !
+    console.error("Date hors planning !");
+    return championsData[0];
   }
-  const index = Math.abs(hash) % championsData.length;
-  return championsData[index];
+
+  // 2. DÉCRYPTAGE (Base64 -> Texte)
+  // atob() est une fonction native du navigateur pour décoder le Base64
+  try {
+    const realName = atob(encryptedName);
+    
+    // 3. On trouve le champion correspondant au nom décrypté
+    // On utilise toLowerCase() pour être sûr d'éviter les soucis de majuscules
+    return championsData.find(c => c.name.toLowerCase() === realName.toLowerCase());
+  } catch (e) {
+    console.error("Erreur de décryptage", e);
+    return championsData[0];
+  }
 };
 
 const getDynamicFontSize = (text) => {
@@ -176,32 +194,51 @@ export default function Game() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
 
+<<<<<<< HEAD
   // 2. ACTIVATION AU MONTAGE
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+=======
+// Remplacer tout le premier useEffect par celui-ci :
+>>>>>>> 77f1c6acdd816ff5c5b6651fa11a7c1c359b7302
   useEffect(() => {
     const todayISO = getParisDateString();
     const storedData = localStorage.getItem('magde-daily-state');
+
     if (storedData) {
       const parsedData = JSON.parse(storedData);
-      if (parsedData.date === todayISO) {
+
+      // --- LE CHANGEMENT EST ICI ---
+      // On ajoute : && parsedData.solutionId === target.id
+      // Ça vérifie : "Est-ce que la sauvegarde correspond bien à l'admin qu'on cherche aujourd'hui ?"
+      if (parsedData.date === todayISO && parsedData.solutionId === target.id) {
         setGuesses(parsedData.guesses);
         setIsGameOver(parsedData.isGameOver);
-        if (parsedData.isGameOver) setShowSuccessModal(true); 
+        if (parsedData.isGameOver) setShowSuccessModal(true);
       } else {
+        // Si c'est pas le bon admin (ou pas la bonne date), on efface tout pour recommencer
         localStorage.removeItem('magde-daily-state');
+        setGuesses([]);        // Important : on vide l'état local aussi
+        setIsGameOver(false);  // Important : on remet le jeu en cours
+        setShowSuccessModal(false);
       }
     }
-  }, []);
+  }, [target]); // <-- Important : on ajoute 'target' ici pour que ça réagisse au changement
 
+// Remplacer tout le deuxième useEffect par celui-ci :
   useEffect(() => {
     if (guesses.length > 0 || isGameOver) {
       const todayISO = getParisDateString();
-      localStorage.setItem('magde-daily-state', JSON.stringify({ date: todayISO, guesses, isGameOver }));
+      localStorage.setItem('magde-daily-state', JSON.stringify({
+        date: todayISO,
+        solutionId: target.id, // --- LE CHANGEMENT EST ICI : on stocke l'ID de la cible ---
+        guesses,
+        isGameOver
+      }));
     }
-  }, [guesses, isGameOver]);
+  }, [guesses, isGameOver, target]); // <-- On ajoute 'target' ici aussi
 
   const filteredChampions = useMemo(() => {
     if (input.length < 1) return [];
