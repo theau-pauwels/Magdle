@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 
 
-import PlayerSearch from "./PlayerSearch";
-
   const AdminImage = ({ id, name, className }) => {
     const [imgSrc, setImgSrc] = useState(`/images/${id}.png`);
     const handleError = () => {
