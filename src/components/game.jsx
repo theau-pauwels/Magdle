@@ -460,7 +460,6 @@ const sendScore = async (attempts) => {
 
     {showDashboardModal && (
       <ScoreBoardModal
-        scores={scores}
         onClose={() => setShowDashboardModal(false)}
       />
     )}
