@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import championsData from '../data/champions.json';
 // 1. IMPORT DU PLANNING GÉNÉRÉ
 import planningData from '../data/planning.json';
-import PlayerSearch from "./PlayerSearch";
 import PlayerSearchModal from "./PlayerSearchModal";
 import ScoreBoardModal from './ScoreboardModal';
 import WinModal from "./WinModal";
