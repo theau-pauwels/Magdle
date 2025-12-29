@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import championsData from '../data/champions.json';
-// 1. IMPORT DU PLANNING GÉNÉRÉ
-import planningData from '../data/planning.json';
 import PlayerSearchModal from "./PlayerSearchModal";
 import ScoreBoardModal from './ScoreboardModal';
 import WinModal from "./WinModal";
-
-
-
 
 // --- CONFIGURATION & CONSTANTES ---
 const STATUS = {
@@ -33,43 +28,6 @@ const getParisDateString = () => {
   const month = parts.find(p => p.type === 'month').value;
   const day = parts.find(p => p.type === 'day').value;
   return `${year}-${month}-${day}`;
-};
-
-// 2. FONCTION DE DÉCODAGE BASE64 (Safe pour UTF-8/Accents)
-const decodeName = (encodedStr) => {
-  try {
-    // Cette combinaison permet de décoder correctement les accents (ex: Raphaël)
-    // encodés via Buffer.from(str).toString('base64') côté Node.js
-    return decodeURIComponent(escape(window.atob(encodedStr)));
-  } catch (e) {
-    console.error("Erreur de décodage du nom :", e);
-    return "";
-  }
-};
-
-// 3. NOUVELLE LOGIQUE : RÉCUPÉRATION VIA LE PLANNING
-const getDailyTarget = () => {
-  const dateStr = getParisDateString();
-  
-  // Récupération du nom crypté dans le fichier JSON
-  const encryptedName = planningData[dateStr];
-
-  // Sécurité : Si pas de date trouvée (ex: fichier expiré), on prend le premier champion
-  if (!encryptedName) {
-    console.warn(`⚠️ Attention : Aucun admin prévu pour la date du ${dateStr} dans planning.json`);
-    return championsData[0];
-  }
-
-  // Décryptage
-  const targetName = decodeName(encryptedName);
-
-  // Recherche dans la base de données
-  const targetChampion = championsData.find(
-    c => c.name.toLowerCase() === targetName.toLowerCase()
-  );
-
-  // Fallback si le nom décrypté ne correspond à aucun champion (orthographe différente ?)
-  return targetChampion || championsData[0];
 };
 
 const getDynamicFontSize = (text) => {
@@ -177,22 +135,38 @@ export default function Game() {
   // Comme getDailyTarget utilise window.atob, il vaut mieux l'exécuter dans un useEffect ou vérifier le target après montage.
   // Cependant, pour simplifier et éviter le 'target is undefined', on peut l'initialiser ici si on est sûr d'être dans un env navigateur, 
   // OU on laisse le code tel quel car React gère les erreurs de rendu initial.
-  const target = useMemo(() => {
-    if (typeof window === 'undefined') return championsData[0]; // Protection SSR
-    return getDailyTarget();
-  }, []);
   
   const [guesses, setGuesses] = useState([]);
+  const [target, setTarget] = useState(null);
   const [input, setInput] = useState('');
   const [isGameOver, setIsGameOver] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDashboardModal, setShowDashboardModal] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showPlayerModal, setShowPlayerModal] = useState(true);
+
   
+  useEffect(() => {
+    const loadTarget = async () => {
+      try {
+        const res = await fetch("/api/dailyTarget");
+        const data = await res.json();
 
+        const champion = championsData.find(
+          c => c.name === data.name
+        );
 
+        setTarget(champion || championsData[0]);
+      } catch (e) {
+        console.error("Erreur chargement admin du jour", e);
+        setTarget(championsData[0]);
+      }
+    };
 
+    loadTarget();
+  }, []);
+
+  
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -204,31 +178,30 @@ export default function Game() {
     if (stored) {
       setCurrentPlayer(stored);
     } else {
-      setShowPlayerModal(true); // 👈 OUVERTURE EXPLICITE
+      setShowPlayerModal(true);
     }
   }
 }, []);
 
 
 // À REMPLACER : Le useEffect qui sauvegarde quand on joue
-  useEffect(() => {
-    if (guesses.length > 0 || isGameOver) {
-      const todayISO = getParisDateString();
-      localStorage.setItem('magde-daily-state', JSON.stringify({ 
-        date: todayISO, 
-        guesses, 
-        isGameOver,
-        targetName: target.name // ON AJOUTE CECI pour la vérification
-      }));
-    }
-  }, [guesses, isGameOver, target.name]);
+useEffect(() => {
+  if (!target) return;
 
-  useEffect(() => {
-    if (guesses.length > 0 || isGameOver) {
-      const todayISO = getParisDateString();
-      localStorage.setItem('magde-daily-state', JSON.stringify({ date: todayISO, guesses, isGameOver }));
-    }
-  }, [guesses, isGameOver]);
+  if (guesses.length > 0 || isGameOver) {
+    const todayISO = getParisDateString();
+    localStorage.setItem(
+      'magde-daily-state',
+      JSON.stringify({
+        date: todayISO,
+        guesses,
+        isGameOver,
+        targetName: target.name
+      })
+    );
+  }
+}, [guesses, isGameOver, target]);
+
 
   const filteredChampions = useMemo(() => {
     if (input.length < 1) return [];

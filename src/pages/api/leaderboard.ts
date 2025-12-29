@@ -1,8 +1,6 @@
 import type { APIRoute } from "astro";
 import { getRedis } from "../../lib/redis";
 import championsData from "../../data/champions.json";
-import planningDataRaw from "../../data/planning.json";
-const planningData = planningDataRaw as Record<string, string>;
 
 const getParisDateString = () => {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -20,26 +18,19 @@ const getParisDateString = () => {
   return `${y}-${m}-${d}`;
 };
 
-const decodeName = (encoded: string) =>
-  decodeURIComponent(escape(atob(encoded)));
-
 export const GET: APIRoute = async ({ request }) => {
   const redis = await getRedis();
   const url = new URL(request.url);
 
   const date = url.searchParams.get("date") ?? getParisDateString();
 
-  // 🎯 ADMIN DU JOUR
-  const encryptedName = planningData[date];
-  let target = null;
+  // 🎯 ADMIN DU JOUR (depuis Redis)
+  const targetName = await redis.get(`daily:target:${date}`);
+  const target = targetName
+    ? championsData.find(c => c.name === targetName) ?? null
+    : null;
 
-  if (encryptedName) {
-    const name = decodeName(encryptedName);
-    target = championsData.find(
-      c => c.name.toLowerCase() === name.toLowerCase()
-    ) ?? null;
-  }
-
+  // 🏆 SCORES
   const scores = await redis.zRangeWithScores(
     `scores:${date}`,
     0,
@@ -52,6 +43,8 @@ export const GET: APIRoute = async ({ request }) => {
       target,
       scores,
     }),
-    { headers: { "Content-Type": "application/json" } }
+    {
+      headers: { "Content-Type": "application/json" },
+    }
   );
 };
