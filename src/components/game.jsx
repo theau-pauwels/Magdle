@@ -205,8 +205,9 @@ useEffect(() => {
   const normalize = (str) =>
   str
     .toLowerCase()
-    .normalize("NFD")              // sépare les lettres et les accents
-    .replace(/[\u0300-\u036f]/g, ""); // supprime les accents
+    .normalize("NFD")                 // sépare accents
+    .replace(/[\u0300-\u036f]/g, "")  // supprime accents
+    .replace(/[^a-z0-9]/g, "");       // supprime espaces, -, ', etc.
 
 
   const filteredChampions = useMemo(() => {
