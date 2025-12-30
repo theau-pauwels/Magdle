@@ -57,10 +57,11 @@ export default function PlayerSearch({ onConfirm }) {
     }
   };
 
-    const AdminImage = ({ id, name, className }) => {
-    const [imgSrc, setImgSrc] = useState(`/images/${id}.png`);
+    const AdminImage = ({ id, imageId, name, className }) => {
+    const imageKey = imageId ?? id;
+    const [imgSrc, setImgSrc] = useState(`/images/${imageKey}.png`);
     const handleError = () => {
-      if (imgSrc.endsWith('.png')) setImgSrc(`/images/${id}.jpg`);
+      if (imgSrc.endsWith('.png')) setImgSrc(`/images/${imageKey}.jpg`);
       else setImgSrc('https://placehold.co/100x100?text=?');
     };
     return <img src={imgSrc} alt={name} className={className} onError={handleError} />;
@@ -107,6 +108,7 @@ export default function PlayerSearch({ onConfirm }) {
                 >
                   <AdminImage
                     id={c.id}
+                    imageId={c.imageId}
                     name={c.name}
                     className="w-10 h-10 rounded border border-slate-500 object-cover"
                   />

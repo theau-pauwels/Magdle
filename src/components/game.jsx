@@ -85,10 +85,11 @@ const ArrowIcon = ({ direction }) => (
   </svg>
 );
 
-const AdminImage = ({ id, name, className }) => {
-  const [imgSrc, setImgSrc] = useState(`/images/${id}.png`);
+const AdminImage = ({ id, imageId, name, className }) => {
+  const imageKey = imageId ?? id;
+  const [imgSrc, setImgSrc] = useState(`/images/${imageKey}.png`);
   const handleError = () => {
-    if (imgSrc.endsWith('.png')) setImgSrc(`/images/${id}.jpg`);
+    if (imgSrc.endsWith('.png')) setImgSrc(`/images/${imageKey}.jpg`);
     else setImgSrc('https://placehold.co/100x100?text=?');
   };
   return <img src={imgSrc} alt={name} className={className} onError={handleError} />;
@@ -144,9 +145,9 @@ export default function Game() {
         const res = await fetch("/api/dailyTarget");
         const data = await res.json();
 
-        const champion = championsData.find(
-          c => c.name === data.name
-        );
+        const champion = data?.id != null
+          ? championsData.find(c => c.id === Number(data.id))
+          : championsData.find(c => c.name === data?.name);
 
         setTarget(champion || championsData[0]);
       } catch (e) {
@@ -212,7 +213,7 @@ const filteredChampions = useMemo(() => {
 
       return (
         normalizedName.includes(normalizedInput) &&
-        !guesses.some(g => g.name === c.name)
+        !guesses.some(g => g.id === c.id)
       );
     })
     .slice(0, 5);
@@ -248,13 +249,13 @@ const handleGuess = (championName) => {
     c => c.name.toLowerCase() === championName.toLowerCase()
   );
 
-  if (!champion || guesses.some(g => g.name === champion.name)) return;
+  if (!champion || guesses.some(g => g.id === champion.id)) return;
 
   const newGuesses = [champion, ...guesses];
   setGuesses(newGuesses);
   setInput('');
 
-  if (champion.name === target.name) {
+  if (champion.id === target.id) {
     const attempts = newGuesses.length; // ✅ BON NOMBRE
 
     setIsGameOver(true);
@@ -369,7 +370,7 @@ const sendScore = async (attempts) => {
                 onClick={() => handleGuess(c.name)}
                 onMouseEnter={() => setSelectedIndex(idx)}
               >
-                <AdminImage id={c.id} name={c.name} className="w-10 h-10 rounded border border-slate-500 object-cover" />
+                <AdminImage id={c.id} imageId={c.imageId} name={c.name} className="w-10 h-10 rounded border border-slate-500 object-cover" />
                 <span className="font-bold">{c.name}</span>
               </div>
             ))}
@@ -392,8 +393,8 @@ const sendScore = async (attempts) => {
             <div key={guess.id} className={`${gridColsClass} animate-slide-up`}>
               {/* Image Sticky */}
               <div className="sticky left-0 z-20 w-full aspect-square border-2 border-slate-600 rounded overflow-hidden relative shadow-lg bg-slate-900">
-                <AdminImage id={guess.id} name={guess.name} className="w-full h-full object-cover" />
-                {guess.name !== target.name && <div className="absolute inset-0 bg-red-500/20 backdrop-grayscale-[0.5]"></div>}
+                <AdminImage id={guess.id} imageId={guess.imageId} name={guess.name} className="w-full h-full object-cover" />
+                {guess.id !== target.id && <div className="absolute inset-0 bg-red-500/20 backdrop-grayscale-[0.5]"></div>}
               </div>
 
               {/* Cellules */}

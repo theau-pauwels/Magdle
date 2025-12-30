@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 
 
-  const AdminImage = ({ id, name, className }) => {
-    const [imgSrc, setImgSrc] = useState(`/images/${id}.png`);
+  const AdminImage = ({ id, imageId, name, className }) => {
+    const imageKey = imageId ?? id;
+    const [imgSrc, setImgSrc] = useState(`/images/${imageKey}.png`);
     const handleError = () => {
-      if (imgSrc.endsWith('.png')) setImgSrc(`/images/${id}.jpg`);
+      if (imgSrc.endsWith('.png')) setImgSrc(`/images/${imageKey}.jpg`);
       else setImgSrc('https://placehold.co/100x100?text=?');
     };
     return <img src={imgSrc} alt={name} className={className} onError={handleError} />;
@@ -55,6 +56,7 @@ export default function WinModal({
         <div className="w-32 h-32 mx-auto mb-4 rounded-full p-1 bg-gradient-to-b from-amber-400 to-amber-700">
           <AdminImage
             id={target.id}
+            imageId={target.imageId}
             name={target.name}
             className="w-full h-full rounded-full object-cover border-4 border-slate-900"
           />

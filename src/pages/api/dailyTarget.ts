@@ -49,16 +49,21 @@ export const GET: APIRoute = async () => {
   // 1️⃣ Déjà calculé ?
   const existing = await redis.get(dailyKey);
   if (existing) {
-    return new Response(JSON.stringify({ name: existing }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    const existingId = Number(existing);
+    const isNumericId = Number.isFinite(existingId) && String(existingId) === existing;
+    return new Response(
+      JSON.stringify(isNumericId ? { id: existingId } : { name: existing }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   }
 
   // 2️⃣ Calcul pondéré
   const weights = [];
 
   for (const c of championsData) {
-    const last = await redis.get(`daily:lastPicked:${c.name}`);
+    const last =
+      (await redis.get(`daily:lastPicked:${c.id}`)) ??
+      (await redis.get(`daily:lastPicked:${c.name}`));
     if (!last) {
       weights.push(1);
     } else {
@@ -72,10 +77,10 @@ export const GET: APIRoute = async () => {
   const selected = pickWeighted(championsData, weights);
 
   // 3️⃣ Sauvegarde
-  await redis.set(dailyKey, selected.name);
-  await redis.set(`daily:lastPicked:${selected.name}`, today);
+  await redis.set(dailyKey, String(selected.id));
+  await redis.set(`daily:lastPicked:${selected.id}`, today);
 
-  return new Response(JSON.stringify({ name: selected.name }), {
+  return new Response(JSON.stringify({ id: selected.id }), {
     headers: { "Content-Type": "application/json" },
   });
 };

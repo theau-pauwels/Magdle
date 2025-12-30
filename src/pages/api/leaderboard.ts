@@ -25,10 +25,15 @@ export const GET: APIRoute = async ({ request }) => {
   const date = url.searchParams.get("date") ?? getParisDateString();
 
   // 🎯 ADMIN DU JOUR (depuis Redis)
-  const targetName = await redis.get(`daily:target:${date}`);
-  const target = targetName
-    ? championsData.find(c => c.name === targetName) ?? null
-    : null;
+  const targetRef = await redis.get(`daily:target:${date}`);
+  let target = null;
+  if (targetRef) {
+    const targetId = Number(targetRef);
+    const isNumericId = Number.isFinite(targetId) && String(targetId) === targetRef;
+    target = isNumericId
+      ? championsData.find(c => c.id === targetId) ?? null
+      : championsData.find(c => c.name === targetRef) ?? null;
+  }
 
   // 🏆 SCORES
   const scores = await redis.zRangeWithScores(
