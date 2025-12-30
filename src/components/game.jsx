@@ -74,6 +74,18 @@ const getComparisonStatus = (guessVal, targetVal) => {
   return STATUS.INCORRECT;
 };
 
+const resolvePlayerId = (stored) => {
+  if (!stored) return null;
+  const rawStored = String(stored).trim();
+  const numericId = Number(rawStored);
+  if (Number.isInteger(numericId) && String(numericId) === rawStored) {
+    return numericId;
+  }
+  const normalizedStored = normalize(rawStored);
+  const match = championsData.find(c => normalize(c.name) === normalizedStored);
+  return match ? match.id : null;
+};
+
 // --- COMPOSANTS UI ---
 
 const ArrowIcon = ({ direction }) => (
@@ -164,12 +176,14 @@ export default function Game() {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
   if (typeof window !== "undefined") {
     const stored = localStorage.getItem("magde-player");
+    const playerId = resolvePlayerId(stored);
 
-    if (stored) {
-      setCurrentPlayer(stored);
+    if (playerId != null) {
+      setCurrentPlayer(playerId);
+      setShowPlayerModal(false);
     } else {
       setShowPlayerModal(true);
     }
@@ -229,8 +243,9 @@ const filteredChampions = useMemo(() => {
   useEffect(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("magde-player");
-      if (stored) {
-        setCurrentPlayer(stored);
+      const playerId = resolvePlayerId(stored);
+      if (playerId != null) {
+        setCurrentPlayer(playerId);
       }
     }
   }, []);
@@ -257,9 +272,10 @@ const handleGuess = (championName) => {
 
   if (champion.id === target.id) {
     const attempts = newGuesses.length; // ✅ BON NOMBRE
+    const guessIds = newGuesses.map(g => g.id).reverse();
 
     setIsGameOver(true);
-    sendScore(attempts);               // ✅ BON JOUEUR + BON SCORE
+    sendScore(attempts, guessIds);               // ✅ BON JOUEUR + BON SCORE
 
     setTimeout(() => setShowSuccessModal(true), 1500);
   }
@@ -283,14 +299,14 @@ const handleGuess = (championName) => {
 
 
 
-const sendScore = async (attempts) => {
+const sendScore = async (attempts, guessIds) => {
   if (!currentPlayer) {
     console.error("❌ Aucun joueur défini");
     return;
   }
 
   console.log("📤 SEND SCORE", {
-    playerName: currentPlayer,
+    playerId: currentPlayer,
     attempts,
   });
 
@@ -298,8 +314,9 @@ const sendScore = async (attempts) => {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      playerName: currentPlayer,
+      playerId: currentPlayer,
       attempts, // ✅ BON NOM
+      guessIds,
     }),
   });
 
@@ -490,9 +507,9 @@ const sendScore = async (attempts) => {
 
     {showPlayerModal && (
       <PlayerSearchModal
-      onConfirm={(player) => {
-        setCurrentPlayer(player);
-        localStorage.setItem("magde-player", player);
+      onConfirm={(playerId) => {
+        setCurrentPlayer(playerId);
+        localStorage.setItem("magde-player", String(playerId));
         setShowPlayerModal(false);
       }}
       />

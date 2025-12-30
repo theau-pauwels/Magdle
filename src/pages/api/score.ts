@@ -4,17 +4,30 @@ import { getParisDateString } from "../../utils";
 
 
 export const POST: APIRoute = async ({ request }) => {
-  const { playerName, attempts } = await request.json();
+  const { playerId, attempts, guessIds } = await request.json();
+  const normalizedPlayerId = Number(playerId);
+  const hasGuessIds = guessIds !== undefined;
+  const validGuessIds =
+    Array.isArray(guessIds) &&
+    guessIds.every((id) => Number.isInteger(id));
 
-  if (!playerName || typeof attempts !== "number") {
+  if (
+    !Number.isInteger(normalizedPlayerId) ||
+    typeof attempts !== "number" ||
+    (hasGuessIds && !validGuessIds)
+  ) {
     return new Response("Invalid payload", { status: 400 });
   }
+
+
 
   const date = getParisDateString();
   const redis = await getRedis();
 
-  const playedKey = `played:${date}:${playerName}`;
+  const playerKey = String(normalizedPlayerId);
+  const playedKey = `played:${date}:${playerKey}`;
   const scoreKey = `scores:${date}`;
+  const guessesKey = `guesses:${date}`;
 
   const alreadyPlayed = await redis.exists(playedKey);
 
@@ -26,8 +39,13 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   // Enregistrement
-  await redis.zAdd(scoreKey, [{ score: attempts, value: playerName }]);
-  await redis.set(playedKey, "1", { EX: 60 * 60 * 24 * 2 }); // expire après 2 jours
+  await redis.zAdd(scoreKey, [{ score: attempts, value: playerKey }]);
+  await redis.hSet(
+    guessesKey,
+    playerKey,
+    JSON.stringify(validGuessIds ? guessIds : [])
+  );
+  await redis.set(playedKey, "1", { EX: 60 * 60 * 24 * 2 }); // expire apres 2 jours
 
   return new Response(
     JSON.stringify({ success: true }),

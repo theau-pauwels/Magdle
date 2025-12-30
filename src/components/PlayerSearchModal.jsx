@@ -10,7 +10,7 @@ const CloseIcon = () => (
 export default function PlayerSearch({ onConfirm }) {
   const [input, setInput] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState(null);
 
   const normalize = (str) =>
     str
@@ -32,14 +32,14 @@ export default function PlayerSearch({ onConfirm }) {
   }, [filteredChampions]);
 
   const handleSelect = (champion) => {
-    setSelectedPlayer(champion.name);
+    setSelectedPlayerId(champion.id);
     setInput(champion.name);
   };
 
   const handleConfirm = () => {
-    if (!selectedPlayer) return;
-    localStorage.setItem("magde-player", selectedPlayer);
-    onConfirm(selectedPlayer);
+    if (!selectedPlayerId) return;
+    localStorage.setItem("magde-player", String(selectedPlayerId));
+    onConfirm(selectedPlayerId);
   };
 
   const handleKeyDown = (e) => {
@@ -88,14 +88,14 @@ export default function PlayerSearch({ onConfirm }) {
               value={input}
               onChange={e => {
                 setInput(e.target.value);
-                setSelectedPlayer(null);
+                setSelectedPlayerId(null);
               }}
               onKeyDown={handleKeyDown}
             />
           </div>
 
           {/* AUTOCOMPLETE */}
-          {filteredChampions.length > 0 && !selectedPlayer && (
+          {filteredChampions.length > 0 && !selectedPlayerId && (
             <div className="absolute top-full left-0 w-full mt-2 bg-slate-800 border border-slate-600 rounded-lg overflow-hidden z-50">
               {filteredChampions.map((c, i) => (
                 <div
@@ -122,7 +122,7 @@ export default function PlayerSearch({ onConfirm }) {
         {/* CONFIRM */}
         <button
           onClick={handleConfirm}
-          disabled={!selectedPlayer}
+          disabled={!selectedPlayerId}
           className="
             w-full mt-4
             bg-amber-500 hover:bg-amber-600

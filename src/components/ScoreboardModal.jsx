@@ -1,10 +1,24 @@
 import { useEffect, useState } from "react";
+import championsData from "../data/champions.json";
 import { normalize, getParisDateString } from "../utils";
 
 
 /* ---------------- Utils ---------------- */
 
-
+const getPlayerName = (value) => {
+  if (value == null) return "";
+  const rawValue = String(value);
+  const numericId = Number(rawValue);
+  if (Number.isInteger(numericId)) {
+    const matchById = championsData.find((c) => c.id === numericId);
+    if (matchById) return matchById.name;
+  }
+  const normalizedValue = normalize(rawValue);
+  const matchByName = championsData.find(
+    (c) => normalize(c.name) === normalizedValue
+  );
+  return matchByName ? matchByName.name : rawValue;
+};
 
 /* ---------------- Component ---------------- */
 
@@ -133,7 +147,7 @@ export default function ScoreBoardModal({ onClose }) {
                 >
                   <span className="flex items-center gap-2">
                     <span className="font-bold">#{rank}</span>
-                    {s.value}
+                    {getPlayerName(s.value)}
                   </span>
                   
                   <span className="text-sm opacity-80">
