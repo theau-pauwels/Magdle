@@ -257,10 +257,10 @@ const handleGuess = (championName) => {
 
   if (champion.id === target.id) {
     const attempts = newGuesses.length; // ✅ BON NOMBRE
+    const guessIds = newGuesses.map(g => g.id).reverse();
 
     setIsGameOver(true);
-    sendScore(attempts);               // ✅ BON JOUEUR + BON SCORE
-
+    sendScore(attempts, guessIds);               // ✅ BON JOUEUR + BON SCORE
     setTimeout(() => setShowSuccessModal(true), 1500);
   }
 };
@@ -283,7 +283,7 @@ const handleGuess = (championName) => {
 
 
 
-const sendScore = async (attempts) => {
+const sendScore = async (attempts, guessIds) => {
   if (!currentPlayer) {
     console.error("❌ Aucun joueur défini");
     return;
@@ -300,6 +300,7 @@ const sendScore = async (attempts) => {
     body: JSON.stringify({
       playerName: currentPlayer,
       attempts, // ✅ BON NOM
+      guessIds,
     }),
   });
 

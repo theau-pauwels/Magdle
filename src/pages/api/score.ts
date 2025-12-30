@@ -4,9 +4,17 @@ import { getParisDateString } from "../../utils";
 
 
 export const POST: APIRoute = async ({ request }) => {
-  const { playerName, attempts } = await request.json();
+  const { playerName, attempts, guessIds } = await request.json();
+  const hasGuessIds = guessIds !== undefined;
+  const validGuessIds =
+    Array.isArray(guessIds) &&
+    guessIds.every((id) => Number.isFinite(id));
 
-  if (!playerName || typeof attempts !== "number") {
+  if (
+    !playerName ||
+    typeof attempts !== "number" ||
+    (hasGuessIds && !validGuessIds)
+  ) {
     return new Response("Invalid payload", { status: 400 });
   }
 
@@ -15,6 +23,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const playedKey = `played:${date}:${playerName}`;
   const scoreKey = `scores:${date}`;
+  const guessesKey = `guesses:${date}`;
 
   const alreadyPlayed = await redis.exists(playedKey);
 
@@ -27,6 +36,11 @@ export const POST: APIRoute = async ({ request }) => {
 
   // Enregistrement
   await redis.zAdd(scoreKey, [{ score: attempts, value: playerName }]);
+  await redis.hSet(
+    guessesKey,
+    playerName,
+    JSON.stringify(validGuessIds ? guessIds : [])
+  );
   await redis.set(playedKey, "1", { EX: 60 * 60 * 24 * 2 }); // expire après 2 jours
 
   return new Response(
