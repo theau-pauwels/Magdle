@@ -1,22 +1,7 @@
 import type { APIRoute } from "astro";
 import championsData from "../../data/champions.json";
 import { getRedis } from "../../lib/redis";
-
-const getParisDateString = () => {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-
-  const parts = formatter.formatToParts(new Date());
-  const y = parts.find(p => p.type === "year")!.value;
-  const m = parts.find(p => p.type === "month")!.value;
-  const d = parts.find(p => p.type === "day")!.value;
-
-  return `${y}-${m}-${d}`;
-};
+import { getParisDateString } from "../../utils";
 
 const getWeight = (daysSinceLastPick: number | null) => {
   if (daysSinceLastPick === null) return 1;        // jamais choisi
@@ -58,7 +43,7 @@ export const GET: APIRoute = async () => {
   const weights = [];
 
   for (const c of championsData) {
-    const last = await redis.get(`daily:lastPicked:${c.name}`);
+    const last = await redis.get(`daily:lastPicked:${c.id}`);
     if (!last) {
       weights.push(1);
     } else {
@@ -72,10 +57,10 @@ export const GET: APIRoute = async () => {
   const selected = pickWeighted(championsData, weights);
 
   // 3️⃣ Sauvegarde
-  await redis.set(dailyKey, selected.name);
-  await redis.set(`daily:lastPicked:${selected.name}`, today);
+  await redis.set(dailyKey, selected.id);
+  await redis.set(`daily:lastPicked:${selected.id}`, today);
 
-  return new Response(JSON.stringify({ name: selected.name }), {
+  return new Response(JSON.stringify({ id: selected.id }), {
     headers: { "Content-Type": "application/json" },
   });
 };

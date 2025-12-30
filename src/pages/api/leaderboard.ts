@@ -1,6 +1,5 @@
 import type { APIRoute } from "astro";
 import { getRedis } from "../../lib/redis";
-import championsData from "../../data/champions.json";
 
 const getParisDateString = () => {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -24,23 +23,26 @@ export const GET: APIRoute = async ({ request }) => {
 
   const date = url.searchParams.get("date") ?? getParisDateString();
 
-  // 🎯 ADMIN DU JOUR (depuis Redis)
-  const targetName = await redis.get(`daily:target:${date}`);
-  const target = targetName
-    ? championsData.find(c => c.name === targetName) ?? null
-    : null;
+  /* 🎯 ADMIN DU JOUR (ID UNIQUEMENT) */
+  const targetIdRaw = await redis.get(`daily:target:${date}`);
+  const targetId = targetIdRaw ? Number(targetIdRaw) : null;
 
-  // 🏆 SCORES
-  const scores = await redis.zRangeWithScores(
+  /* 🏆 SCORES */
+  const rawScores = await redis.zRangeWithScores(
     `scores:${date}`,
     0,
     50
   );
 
+  const scores = rawScores.map(s => ({
+    value: s.value,   // nom du joueur
+    score: s.score,   // nombre d'essais
+  }));
+
   return new Response(
     JSON.stringify({
       date,
-      target,
+      targetId,
       scores,
     }),
     {

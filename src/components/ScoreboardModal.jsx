@@ -1,21 +1,12 @@
 import { useEffect, useState } from "react";
-
-/* ---------------- Utils ---------------- */
-
-const getParisToday = () => {
-  const now = new Date();
-  const paris = new Date(
-    now.toLocaleString("en-US", { timeZone: "Europe/Paris" })
-  );
-  return paris.toISOString().slice(0, 10); // YYYY-MM-DD
-};
-
-/* ---------------- Component ---------------- */
+import { getParisDateString } from "../utils";
+import championsData from "../data/champions.json";
 
 export default function ScoreBoardModal({ onClose }) {
   const [date, setDate] = useState(getParisToday());
   const [scores, setScores] = useState([]);
-  const [target, setTarget] = useState(null);
+  const [targetId, setTargetId] = useState(null);
+
   const [loading, setLoading] = useState(false);
 
   const loadScores = async (selectedDate) => {
@@ -25,19 +16,30 @@ export default function ScoreBoardModal({ onClose }) {
       const data = await res.json();
 
       setScores(data.scores || []);
-      setTarget(data.target || null);
+      setTargetId(data.targetId ?? null);
     } catch (err) {
       console.error("Erreur chargement leaderboard :", err);
       setScores([]);
-      setTarget(null);
+      setTargetId(null);
     } finally {
       setLoading(false);
     }
   };
 
+
   useEffect(() => {
     loadScores(date);
   }, [date]);
+
+  //console.log("targetId:", targetId);
+  //console.log("c.id: ", parseInt(c.id), "targetId: ", parseInt(targetId));
+  
+  const target = targetId
+  ? championsData.find(c => parseInt(c.id) === parseInt(targetId))
+  : null;
+
+
+  //console.log("target target:", target);
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -78,6 +80,7 @@ export default function ScoreBoardModal({ onClose }) {
         </div>
 
         {/* Target of the day */}
+        {/* {console.log("Target:", target)} */}
         {target && (
           <div className="
             mb-4 p-1 rounded-lg

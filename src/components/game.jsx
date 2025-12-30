@@ -123,7 +123,6 @@ const Cell = ({ children, status, delay = 0 }) => {
 
 
 
-
 // --- MAIN COMPONENT ---
 
 export default function Game() {
@@ -153,7 +152,7 @@ export default function Game() {
         const data = await res.json();
 
         const champion = championsData.find(
-          c => c.name === data.name
+          c => c.id === data.id
         );
 
         setTarget(champion || championsData[0]);
@@ -171,18 +170,6 @@ export default function Game() {
     setIsMounted(true);
   }, []);
 
-  useEffect(() => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("magde-player");
-
-    if (stored) {
-      setCurrentPlayer(stored);
-    } else {
-      setShowPlayerModal(true);
-    }
-  }
-}, []);
-
 
 // À REMPLACER : Le useEffect qui sauvegarde quand on joue
 useEffect(() => {
@@ -196,7 +183,7 @@ useEffect(() => {
         date: todayISO,
         guesses,
         isGameOver,
-        targetName: target.name
+        targetName: target.id
       })
     );
   }
@@ -227,20 +214,33 @@ useEffect(() => {
       .slice(0, 5);
   }, [input, guesses]);
 
+      return (
+        normalizedName.includes(normalizedInput) &&
+        !guesses.some(g => g.id === c.id)
+      );
+    })
+    .slice(0, 5);
+}, [input, guesses]);
+
+
 
   useEffect(() => setSelectedIndex(0), [filteredChampions]);
   const [scores, setScores] = useState([]);
   
   const [currentPlayer, setCurrentPlayer] = useState(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("magde-player");
-      if (stored) {
-        setCurrentPlayer(stored);
-      }
+useEffect(() => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("magde-player");
+    if (stored) {
+      console.log("stored : ", stored);
+      setCurrentPlayer(Number(stored)); // ✅ TOUJOURS un number
+    } else {
+      setShowPlayerModal(true);
     }
-  }, []);
+  }
+}, []);
+
 
   const loadScores = async () => {
   const res = await fetch("/api/leaderboard");
@@ -249,20 +249,18 @@ useEffect(() => {
 };
 
 
-const handleGuess = (championName) => {
+const handleGuess = (championId) => {
   if (isGameOver || !target) return;
 
-  const champion = championsData.find(
-    c => c.name.toLowerCase() === championName.toLowerCase()
-  );
+  const champion = championsData.find(c => c.id === championId);
 
-  if (!champion || guesses.some(g => g.name === champion.name)) return;
+  if (!champion || guesses.some(g => g.id === champion.id)) return;
 
   const newGuesses = [champion, ...guesses];
   setGuesses(newGuesses);
   setInput('');
 
-  if (champion.name === target.name) {
+  if (champion.id === target.id) {
     const attempts = newGuesses.length; // ✅ BON NOMBRE
 
     setIsGameOver(true);
@@ -284,29 +282,28 @@ const handleGuess = (championName) => {
     } else if (e.key === 'Enter') {
       e.preventDefault();
       setSelectedIndex(0);
-      handleGuess(filteredChampions[selectedIndex].name);
+      handleGuess(filteredChampions[selectedIndex].id);
     }
   };
 
 
 
 const sendScore = async (attempts) => {
-  if (!currentPlayer) {
-    console.error("❌ Aucun joueur défini");
+  if (typeof currentPlayer !== "number") {
+    console.error("❌ currentPlayer n'est pas un ID", currentPlayer);
     return;
   }
 
-  console.log("📤 SEND SCORE", {
-    playerName: currentPlayer,
-    attempts,
-  });
+  console.log(
+    `✅ Envoi du score pour le joueur ID=${currentPlayer} avec ${attempts} tentatives`
+  );
 
   const res = await fetch("/api/score", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      playerName: currentPlayer,
-      attempts, // ✅ BON NOM
+      playerId: currentPlayer, // ✅ déjà un number
+      attempts,
     }),
   });
 
@@ -315,6 +312,8 @@ const sendScore = async (attempts) => {
     console.error("❌ Score non enregistré :", text);
   }
 };
+
+
 
 
 
@@ -374,7 +373,7 @@ const sendScore = async (attempts) => {
               <div
                 key={c.id}
                 className={`flex items-center gap-3 p-3 cursor-pointer transition-colors ${idx === selectedIndex ? 'bg-amber-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
-                onClick={() => handleGuess(c.name)}
+                onClick={() => handleGuess(c.id)}
                 onMouseEnter={() => setSelectedIndex(idx)}
               >
                 <AdminImage id={c.id} name={c.name} className="w-10 h-10 rounded border border-slate-500 object-cover" />
@@ -401,11 +400,15 @@ const sendScore = async (attempts) => {
               {/* Image Sticky */}
               <div className="sticky left-0 z-20 w-full aspect-square border-2 border-slate-600 rounded overflow-hidden relative shadow-lg bg-slate-900">
                 <AdminImage id={guess.id} name={guess.name} className="w-full h-full object-cover" />
-                {guess.name !== target.name && <div className="absolute inset-0 bg-red-500/20 backdrop-grayscale-[0.5]"></div>}
+                {guess.id !== target.id && <div className="absolute inset-0 bg-red-500/20 backdrop-grayscale-[0.5]"></div>}
               </div>
 
               {/* Cellules */}
-              <Cell status={getComparisonStatus(guess.name, target.name)} delay={50}>
+              <Cell
+                status={guess.id === target.id ? STATUS.CORRECT : STATUS.INCORRECT}
+                delay={50}
+              >
+
                 <span className={`w-full ${getDynamicFontSize(guess.name)}`}>
                   {guess.name}
                 </span>
@@ -487,7 +490,7 @@ const sendScore = async (attempts) => {
         target={target}
         onClose={() => setShowSuccessModal(false)}
         onShowLeaderboard={() => {
-          loadScores();            // 👈 RECHARGE
+          loadScores();          
           setShowSuccessModal(false);
           setShowDashboardModal(true);
         }}
@@ -497,12 +500,13 @@ const sendScore = async (attempts) => {
 
     {showPlayerModal && (
       <PlayerSearchModal
-      onConfirm={(player) => {
-        setCurrentPlayer(player);
-        localStorage.setItem("magde-player", player);
-        setShowPlayerModal(false);
-      }}
+        onConfirm={(player) => {
+          setCurrentPlayer(player.id);                 // ✅ number
+          localStorage.setItem("magde-player", String(player.id));
+          setShowPlayerModal(false);
+        }}
       />
+
     )}
     </>
   );

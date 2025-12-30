@@ -19,22 +19,30 @@ const getParisDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
-
 export const POST: APIRoute = async ({ request }) => {
-  const { playerName, attempts } = await request.json();
+  const { playerId, attempts } = await request.json();
 
-  if (!playerName || typeof attempts !== "number") {
+
+
+  if (
+    typeof playerId !== "number" ||
+    typeof attempts !== "number"
+  ) {
+    console.log("Recording score:", {
+    playerId,
+    attempts,
+    });
     return new Response("Invalid payload", { status: 400 });
   }
 
   const date = getParisDateString();
   const redis = await getRedis();
 
-  const playedKey = `played:${date}:${playerName}`;
   const scoreKey = `scores:${date}`;
+  const playedKey = `played:${date}:${playerId}`;
 
+  // ❌ Déjà joué aujourd'hui ?
   const alreadyPlayed = await redis.exists(playedKey);
-
   if (alreadyPlayed) {
     return new Response(
       JSON.stringify({ error: "already_played" }),
@@ -42,9 +50,19 @@ export const POST: APIRoute = async ({ request }) => {
     );
   }
 
-  // Enregistrement
-  await redis.zAdd(scoreKey, [{ score: attempts, value: playerName }]);
-  await redis.set(playedKey, "1", { EX: 60 * 60 * 24 * 2 }); // expire après 2 jours
+
+
+  // ✅ Enregistrement
+  await redis.zAdd(scoreKey, [
+    {
+      score: attempts,
+      value: String(playerId), // 🔥 ID stocké, pas le nom
+    },
+  ]);
+
+  await redis.set(playedKey, "1", {
+    EX: 60 * 60 * 24 * 2, // 2 jours
+  });
 
   return new Response(
     JSON.stringify({ success: true }),
