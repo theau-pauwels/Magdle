@@ -74,18 +74,6 @@ const getComparisonStatus = (guessVal, targetVal) => {
   return STATUS.INCORRECT;
 };
 
-const resolvePlayerId = (stored) => {
-  if (!stored) return null;
-  const rawStored = String(stored).trim();
-  const numericId = Number(rawStored);
-  if (Number.isInteger(numericId) && String(numericId) === rawStored) {
-    return numericId;
-  }
-  const normalizedStored = normalize(rawStored);
-  const match = championsData.find(c => normalize(c.name) === normalizedStored);
-  return match ? match.id : null;
-};
-
 // --- COMPOSANTS UI ---
 
 const ArrowIcon = ({ direction }) => (
@@ -176,20 +164,6 @@ export default function Game() {
     setIsMounted(true);
   }, []);
 
-useEffect(() => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("magde-player");
-    const playerId = resolvePlayerId(stored);
-
-    if (playerId != null) {
-      setCurrentPlayer(playerId);
-      setShowPlayerModal(false);
-    } else {
-      setShowPlayerModal(true);
-    }
-  }
-}, []);
-
 
 // À REMPLACER : Le useEffect qui sauvegarde quand on joue
 useEffect(() => {
@@ -240,16 +214,6 @@ const filteredChampions = useMemo(() => {
   
   const [currentPlayer, setCurrentPlayer] = useState(null);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("magde-player");
-      const playerId = resolvePlayerId(stored);
-      if (playerId != null) {
-        setCurrentPlayer(playerId);
-      }
-    }
-  }, []);
-
   const loadScores = async () => {
   const res = await fetch("/api/leaderboard");
   const data = await res.json();
@@ -258,6 +222,10 @@ const filteredChampions = useMemo(() => {
 
 
 const handleGuess = (championName) => {
+  if (!currentPlayer) {
+    setShowPlayerModal(true);
+    return;
+  }
   if (isGameOver || !target) return;
 
   const champion = championsData.find(
@@ -300,6 +268,7 @@ const handleGuess = (championName) => {
 
 const sendScore = async (attempts, guessIds) => {
   if (!currentPlayer) {
+    setShowPlayerModal(true);
     console.error("❌ Aucun joueur défini");
     return;
   }
@@ -373,7 +342,7 @@ const sendScore = async (attempts, guessIds) => {
              value={input}
              onChange={(e) => setInput(e.target.value)}
              onKeyDown={handleKeyDown}
-             disabled={isGameOver}
+             disabled={isGameOver || !currentPlayer}
            />
         </div>
         
