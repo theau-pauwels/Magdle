@@ -47,7 +47,7 @@ export const GET: APIRoute = async ({ request }) => {
         : championsData.find(c => c.name === legacyRef) ?? null;
     }
   }
-// 🏆 SCORES
+  // 🏆 SCORES
   const scores = await redis.zRangeWithScores(
     `scores:${date}`,
     0,
