@@ -91,7 +91,7 @@ export const GET: APIRoute = async () => {
   const selected = pickWeighted(championsData, weights);
 
   // 3️⃣ Sauvegarde
-  await redis.hSet(dailyHashKey, String(selected.id), today);
+  await redis.hSet(dailyHashKey, today, String(selected.id));
   await redis.set(`daily:lastPicked:${selected.id}`, today);
 
   return new Response(JSON.stringify({ id: selected.id }), {
